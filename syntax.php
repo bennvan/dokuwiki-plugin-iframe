@@ -39,6 +39,7 @@ class syntax_plugin_iframe extends DokuWiki_Syntax_Plugin {
                     'height'      => '400px',
                     'title'       => trim($alt),
                     'frameborder' => 0,
+                    'loading'     => 'lazy',
                 );
 
         $align = '';
