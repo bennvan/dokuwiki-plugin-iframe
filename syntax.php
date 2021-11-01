@@ -19,12 +19,13 @@ class syntax_plugin_iframe extends DokuWiki_Syntax_Plugin {
 
     function getType() { return 'substition'; }
     function getSort() { return 305; }
-    function connectTo($mode) { $this->Lexer->addSpecialPattern('{{url>.*?}}',$mode,'plugin_iframe'); }
+    function connectTo($mode) { $this->Lexer->addSpecialPattern('{{iframe>.*?}}',$mode,'plugin_iframe'); }
 
     function handle($match, $state, $pos, Doku_Handler $handler){
-        $match = substr($match, 6, -2);
+        $match = substr($match, 9, -2);
         list($url, $alt)   = explode('|',$match,2);
-        list($url, $param) = explode(' ',$url,2);
+        list($url, $opts) = explode(' ',$url,2);
+        $params = explode(' ', $opts);
 
         // javascript pseudo uris allowed?
         if (!$this->getConf('js_ok') && substr($url,0,11) == 'javascript:'){
@@ -32,63 +33,50 @@ class syntax_plugin_iframe extends DokuWiki_Syntax_Plugin {
         }
 
         // set defaults
-        $opts = array(
-                    'url'    => $url,
-                    'width'  => '98%',
-                    'height' => '400px',
-                    'alt'    => $alt,
-                    'scroll' => true,
-                    'border' => true,
-                    'align'  => false,
+        $attrs = array(
+                    'src'         => $url,
+                    'width'       => '100%',
+                    'height'      => '400px',
+                    'title'       => trim($alt),
+                    'frameborder' => 0,
                 );
 
-        // handle size parameters
-        $matches=array();
-        if(preg_match('/\[?(\d+(em|%|pt|px)?)\s*([,xX]\s*(\d+(em|%|pt|px)?))?\]?/',$param,$matches)){
-            if($matches[4]){
-                // width and height was given
-                $opts['width'] = $matches[1];
-                if(!$matches[2]) $opts['width'] .= 'px'; //default to pixel when no unit was set
-                $opts['height'] = $matches[4];
-                if(!$matches[5]) $opts['height'] .= 'px'; //default to pixel when no unit was set
-            }elseif($matches[2]){
-                // only height was given
-                $opts['height'] = $matches[1];
-                if(!$matches[2]) $opts['height'] .= 'px'; //default to pixel when no unit was set
+        $align = '';
+        foreach ($params as $idx => $param) {
+            if ($param === 'noscroll') {
+                $attrs['scrolling'] = 'no';
+                continue;
             }
+            if (in_array($param,['center', 'left', 'right'])) {
+                $align = $param; 
+                continue;
+            }
+            // Unknown attributes
+            list($key, $value) = explode('=',$param);
+            if (!$key && !$value) continue;
+            $attrs[$key] = $value;
         }
+        // Merge the align class
+        if (!empty($align)) {
+            $attrs['class'] .= " plugin_iframe_$align";
+        }
+        // Create style attr
+        $attrs['style'] = 'width:'.$attrs['width'].';height:'.$attrs['height'];
+        unset($attrs['width'], $attrs['height']);
 
-        // handle other parameters
-        if(preg_match('/noscroll(bars?|ing)?/',$param)){
-            $opts['scroll'] = false;
-        }
-        if(preg_match('/no(frame)?border/',$param)){
-            $opts['border'] = false;
-        }
-        if(preg_match('/(left|right)/',$param,$matches)){
-            $opts['align'] = $matches[1];
-        }
-
-        return $opts;
+        return $attrs;
     }
 
     function render($mode, Doku_Renderer $R, $data) {
         if($mode != 'xhtml') return false;
 
-        if(!$data['url']){
-            $R->doc .= '<div class="iframe">'.hsc($data['alt']).'</div>';
-        }else{
-            $opts = array(
-                        'title' => $data['alt'],
-                        'src'   => $data['url'],
-                        'style' => 'width:'.$data['width'].'; height:'.$data['height'],
-                        );
-            if(!$data['border']) $opts['frameborder'] = 0;
-            if(!$data['scroll']) $opts['scrolling'] = 'no';
-            if($data['align'])   $opts['align'] = $data['align'];
-            $params = buildAttributes($opts);
-            $R->doc .= "<iframe $params>".hsc($alt).'</iframe>';
+        if(!$data['src']){
+            $R->doc .= '<div class="iframe">'.hsc($data['title']).'</div>';
+            return true;
         }
+
+        $params = buildAttributes($data);
+        $R->doc .= "<iframe $params>".hsc($data['title']).'</iframe>';
 
         return true;
     }
