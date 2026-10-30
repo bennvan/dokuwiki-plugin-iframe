@@ -23,9 +23,9 @@ class syntax_plugin_iframe extends DokuWiki_Syntax_Plugin {
 
     function handle($match, $state, $pos, Doku_Handler $handler){
         $match = substr($match, 9, -2);
-        list($url, $alt)   = explode('|',$match,2);
-        list($url, $opts) = explode(' ',$url,2);
-        $params = explode(' ', $opts);
+        list($url, $alt) = array_pad(explode('|', $match, 2), 2, '');
+        list($url, $opts) = array_pad(preg_split('/\s+/', trim($url), 2), 2, '');
+        $params = preg_split('/\s+/', trim($opts), -1, PREG_SPLIT_NO_EMPTY);
 
         // javascript pseudo uris allowed?
         if (!$this->getConf('js_ok') && substr($url,0,11) == 'javascript:'){
@@ -53,13 +53,13 @@ class syntax_plugin_iframe extends DokuWiki_Syntax_Plugin {
                 continue;
             }
             // Unknown attributes
-            list($key, $value) = explode('=',$param);
-            if (!$key && !$value) continue;
+            list($key, $value) = array_pad(explode('=', $param, 2), 2, null);
+            if ($key === '' || $value === null) continue;
             $attrs[$key] = $value;
         }
         // Merge the align class
         if (!empty($align)) {
-            $attrs['class'] .= " plugin_iframe_$align";
+            $attrs['class'] = trim(($attrs['class'] ?? '') . " plugin_iframe_$align");
         }
         // Create style attr
         $attrs['style'] = 'width:'.$attrs['width'].';height:'.$attrs['height'];
